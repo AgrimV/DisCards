@@ -2,21 +2,21 @@ import os
 import discord
 import blackjack
 
-client = discord.Client()
+CLIENT = discord.Client()
 
 
-@client.event
+@CLIENT.event
 async def on_ready():
-    print(f'{client.user} is on!')
+    print(f'{CLIENT.user} is on!')
 
 
-@client.event
+@CLIENT.event
 async def on_message(message):
-    if message.author == client.user:
+    if message.author == CLIENT.user:
         return
 
     if message.content.startswith('$blackjack'):
-        await blackjack.main(client, message)
+        await blackjack.main(CLIENT, message)
 
 
-client.run(os.getenv('TOKEN'))
+CLIENT.run(os.getenv('TOKEN'))
