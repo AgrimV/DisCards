@@ -4,7 +4,7 @@ import itertools
 houses = ['H', 'S', 'C', 'D']
 house_emoji = {'H': ':heart:',
                'S': ':spades:',
-               'C': ':four_leaf_clover:',
+               'C': ':clubs:',
                'D': ':diamonds:'}
 
 faces = ['A', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K']
@@ -18,9 +18,9 @@ face_emoji = {'A': ':a:',
               '8': ':eight:',
               '9': ':nine:',
               'T': ':keycap_ten:',
-              'J': ':jack_o_lantern:',
-              'Q': ':female_sign:',
-              'K': ':male_sign:'}
+              'J': ':fleur_de_lis:',
+              'Q': ':trident:',
+              'K': ':crown:'}
 face_value = {'A': 11,
               '2': 2,
               '3': 3,
@@ -90,6 +90,17 @@ async def main(client, message):
         player_value = sum([face_value[i[1]] for i in player_hand])
         dealer_value = sum([face_value[i[1]] for i in dealer_hand])
 
+        count = 0
+
+        for card in player_hand:
+            if player_value > 21 and 'A' in card :
+                count += 1
+
+        if count > 1:
+            player_value -= 10 * (count - 1)
+        elif count == 1:
+            player_value -= 10
+
         await message.channel.send(f'\tDealer Hand: {dealer_value}')
         await message.channel.send(f'\tPlayer Hand : {player_value}')
 
@@ -116,6 +127,7 @@ async def main(client, message):
 
         if message.content.startswith('$stay'):
             await show()
+
 
     await display()
 
