@@ -12,11 +12,14 @@ async def on_ready():
 
 @CLIENT.event
 async def on_message(message):
-    if message.author == CLIENT.user:
-        return
-
     if message.content.startswith('$blackjack'):
-        await blackjack.main(CLIENT, message)
+        await blackjack.begin(message)
+
+    if message.content.startswith('$hit'):
+        await blackjack.player_draw(message)
+
+    if message.content.startswith('$stand'):
+        await blackjack.show(message)
 
 
 CLIENT.run(os.getenv('TOKEN'))

@@ -1,4 +1,5 @@
 import random
+import discord
 import itertools
 
 houses = ['H', 'S', 'C', 'D']
@@ -35,15 +36,15 @@ face_value = {'A': 11,
               'Q': 10,
               'K': 10}
 
-deck = [''.join(card) for card in list(itertools.product(houses, faces))]
+DECK = [''.join(card) for card in list(itertools.product(houses, faces))]
 
 dealer_hand = []
 player_hand = []
 
 
 def draw_card():
-    card = deck[random.randint(0, len(deck) - 1)]
-    deck.remove(card)
+    card = DECK[random.randint(0, len(DECK) - 1)]
+    DECK.remove(card)
     return card
 
 
@@ -56,85 +57,120 @@ def emojify(cards):
     return house, face
 
 
-async def main(client, message):
-    dealer_hand.append(draw_card())
-    dealer_hand.append(draw_card())
+def player_show():
+    player_cards = emojify(player_hand)
+    return '\n'.join([''.join(player_cards[0]),
+                      ''.join(player_cards[1])])
+
+
+def dealer_show(hidden):
     dealer_cards = emojify(dealer_hand)
+    if hidden:
+        return '\n'.join([f'{dealer_cards[0][0]}' + ':question:',
+                          f'{dealer_cards[1][0]}' +
+                          ':face_with_raised_eyebrow:'])
+
+    else:
+        return '\n'.join([''.join(dealer_cards[0]),
+                          ''.join(dealer_cards[1])])
+
+
+async def begin(message):
+    global DECK, dealer_hand, player_hand
+
+    DECK = [''.join(card) for card in list(itertools.product(houses, faces))]
+
+    dealer_hand = []
+    player_hand = []
+
+    dealer_hand.append(draw_card())
+    dealer_hand.append(draw_card())
 
     player_hand.append(draw_card())
     player_hand.append(draw_card())
 
-    async def display():
-        player_cards = emojify(player_hand)
-        await message.channel.send('Dealer Hand :\n')
-        await message.channel.send('\n'.join([f'{dealer_cards[0][0]}' +
-                                              ':question:',
-                                              f'{dealer_cards[1][0]}' +
-                                              ':face_with_raised_eyebrow:']))
+    embed = discord.Embed(title='BLACKJACK', color=discord.Color.blue())
+    embed.add_field(name='Dealer Hand', value=dealer_show(True), inline=True)
+    embed.add_field(name='Player Hand', value=player_show(), inline=True)
+    await message.channel.send(embed=embed)
 
-        await message.channel.send('Player Hand :\n')
-        await message.channel.send('\n'.join([''.join(player_cards[0]),
-                                              ''.join(player_cards[1])]))
 
-    async def show():
-        player_cards = emojify(player_hand)
+async def player_draw(message):
+    player_hand.append(draw_card())
+    embed = discord.Embed(title='BLACKJACK', description='Player Hits',
+                          color=discord.Color.blue())
+    embed.add_field(name='Player', value='Card Drawn', inline=False)
+    embed.add_field(name='Dealer Hand', value=dealer_show(True), inline=True)
+    embed.add_field(name='Player Hand', value=player_show(), inline=True)
 
-        await message.channel.send('Dealer Hand :\n')
-        await message.channel.send('\n'.join([''.join(dealer_cards[0]),
-                                              ''.join(dealer_cards[1])]))
+    await message.channel.send(embed=embed)
 
-        await message.channel.send('Player Hand :\n')
-        await message.channel.send('\n'.join([''.join(player_cards[0]),
-                                              ''.join(player_cards[1])]))
 
-        player_value = sum([face_value[i[1]] for i in player_hand])
+async def show(message):
+    embed = discord.Embed(title='BLACKJACK', color=discord.Color.blue())
+    embed.add_field(name='Dealer Hand', value=dealer_show(False), inline=True)
+    embed.add_field(name='Player Hand', value=player_show(), inline=True)
+
+    await message.channel.send(embed=embed)
+
+    player_value = sum([face_value[i[1]] for i in player_hand])
+    dealer_value = sum([face_value[i[1]] for i in dealer_hand])
+
+    player_ace_count = 0
+    dealer_ace_count = 0
+
+    if player_value > 21:
+        for card in player_hand:
+            if 'A' in card:
+                player_ace_count += 1
+
+    if player_ace_count > 1:
+        player_value -= 10 * (player_ace_count - 1)
+    elif player_ace_count == 1:
+        player_value -= 10
+
+    if dealer_value > 21:
+        for card in dealer_hand:
+            if 'A' in card:
+                dealer_ace_count += 1
+
+    if dealer_ace_count > 1:
+        dealer_value -= 10 * (dealer_ace_count - 1)
+    elif dealer_ace_count == 1:
+        dealer_value -= 10
+
+    while dealer_value < 17:
+        dealer_hand.append(draw_card())
+        embed = discord.Embed(title='BLACKJACK', description='Dealer Hits',
+                              color=discord.Color.blue())
+        embed.add_field(name='Dealer Hand', value=dealer_show(False),
+                        inline=True)
+        embed.add_field(name='Player Hand', value=player_show(), inline=True)
+        await message.channel.send(embed=embed)
         dealer_value = sum([face_value[i[1]] for i in dealer_hand])
 
-        count = 0
+    embed = discord.Embed(title='BLACKJACK', description='Show',
+                          color=discord.Color.blue())
+    embed.add_field(name='Dealer Hand', value=dealer_show(False), inline=True)
+    embed.add_field(name='Player Hand', value=player_show(), inline=True)
+    embed.add_field(name='|', value='|', inline=True)
+    embed.add_field(name='Dealer Value', value=f'{dealer_value}', inline=True)
+    embed.add_field(name='Player Value', value=f'{player_value}', inline=True)
 
-        for card in player_hand:
-            if player_value > 21 and 'A' in card :
-                count += 1
+    if player_value > 21:
+        embed.add_field(name='You are BUSTED!', value=':cop::scream::spy:',
+                        inline=False)
+    elif player_value == 21:
+        embed.add_field(name='BLACKJACK! You WIN!', value=':black_joker:',
+                        inline=False)
+    elif player_value == dealer_value:
+        embed.add_field(name='Draw', value=':handshake:', inline=False)
+    elif dealer_value > 21:
+        embed.add_field(name='Dealer BUSTED!', value=':cop::unamused::spy:',
+                        inline=False)
+    elif player_value > dealer_value:
+        embed.add_field(name='You Win!', value=':partying_face:', inline=False)
+    else:
+        embed.add_field(name='You Lose!', value=':tired_face:', inline=False)
 
-        if count > 1:
-            player_value -= 10 * (count - 1)
-        elif count == 1:
-            player_value -= 10
-
-        await message.channel.send(f'\tDealer Hand: {dealer_value}')
-        await message.channel.send(f'\tPlayer Hand : {player_value}')
-
-        if player_value > 21:
-            await message.channel.send('You are B-U-S-T-E-D!')
-        elif player_value == 21:
-            await message.channel.send('BLACKJACK 21! You WIN!!!')
-        elif dealer_value > 21:
-            await message.channel.send('Dealer BUSTED!')
-        elif player_value > dealer_value:
-            await message.channel.send('You Win!')
-        else:
-            await message.channel.send('You Lose!')
-
-    @client.event
-    async def on_message(message):
-        if message.author == client.user:
-            return
-
-        if message.content.startswith('$hit'):
-            player_hand.append(draw_card())
-            await message.channel.send('Card Drawn')
-            await display()
-
-        if message.content.startswith('$stay'):
-            await show()
-
-
-    await display()
-
-
-# dealer_hand.append(draw_card())
-# dealer_hand.append(draw_card())
-# player_hand.append(draw_card())
-# player_hand.append(draw_card())
-# print([face_value[i[1]] for i in player_hand])
-# print(face_value[player_hand[0][1]], player_hand)
+    await message.channel.send(embed=embed)
